@@ -7,7 +7,7 @@ project:
   language: Wokwi
   clock_hz: 80000
   tiles: 1x1
-  wokwi_id: 0
+  wokwi_id: 481436559394914305
 pinout:
   ui[0]: Comparator data
   ui[1]: Blank sample
