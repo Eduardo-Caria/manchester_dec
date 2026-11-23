@@ -30,6 +30,11 @@
   "//": "If you need a custom clock configuration, read the following documentation first:",
   "//": "https://tinytapeout.com/faq/#how-can-i-map-an-additional-external-clock-to-one-of-the-gpios",
   "CLOCK_PORT": "clk",
+  "DESIGN_REPAIR_MAX_SLEW_PCT": 45,
+  "RUN_POST_GRT_DESIGN_REPAIR": true,
+  "GRT_DESIGN_REPAIR_MAX_SLEW_PCT": 45,
+  "RUN_POST_GRT_RESIZER_TIMING": true,
+  "CTS_DISTANCE_BETWEEN_BUFFERS": 26,
 
   "//": "Configuration docs: https://librelane.readthedocs.io/en/latest/reference/configuration.html",
 
