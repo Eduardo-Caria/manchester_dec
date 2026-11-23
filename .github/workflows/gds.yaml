@@ -59,11 +59,78 @@ jobs:
       - name: Test the powered gate-level netlist
         uses: TinyTapeout/tt-gds-action/gl_test@ttsky26d
 
-  viewer:
+  viewer_files:
+    name: Prepare viewer files
     needs: gds
     runs-on: ubuntu-24.04
-    permissions:
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
+    outputs:
+      artifact_name: ${{ steps.site.outputs.artifact_name }}
+      pdk: ${{ steps.site.outputs.pdk }}
     steps:
-      - uses: TinyTapeout/tt-gds-action/viewer@ttsky26d
+      - uses: actions/download-artifact@v7
+        with:
+          name: tt_submission
+          path: tt_submission
+      - uses: actions/download-artifact@v7
+        with:
+          name: gds_render
+          path: gh-pages
+
+      - name: Prepare the Tiny Tapeout viewer
+        id: site
+        shell: bash
+        run: |
+          pdk="$(jq -er '.PDK | select(test("^[A-Za-z0-9_-]+$"))' tt_submission/pdk.json)"
+          printf 'pdk=%s\nartifact_name=viewer-pages-%s\n' "$pdk" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          cp tt_submission/*.gds gh-pages/tinytapeout.gds
+          cp tt_submission/*.oas gh-pages/tinytapeout.oas
+          cat > gh-pages/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+          <meta charset="utf-8">
+          <title>SLIPT Manchester Receiver Layout</title>
+          <a id="viewer">Open the Tiny Tapeout 3D viewer</a>
+          <script>
+            const viewer = new URL('https://gds-viewer.tinytapeout.com/');
+            viewer.searchParams.set('pdk', '$pdk');
+            viewer.searchParams.set('model', new URL('tinytapeout.oas', location.href).href);
+            document.getElementById('viewer').href = viewer.href;
+            location.replace(viewer.href);
+          </script>
+          </html>
+          EOF
+
+      # A retry gets its own name. The deploy job can be retried without uploading again.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          name: ${{ steps.site.outputs.artifact_name }}
+          path: gh-pages
+
+  viewer:
+    needs: viewer_files
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish the viewer files
+        id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ needs.viewer_files.outputs.artifact_name }}
+
+      - name: Link the 3D viewer and preview
+        shell: bash
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          PDK: ${{ needs.viewer_files.outputs.pdk }}
+        run: |
+          page_url="${PAGE_URL%/}"
+          model="$(jq -nr --arg url "$page_url/tinytapeout.oas" '$url | @uri')"
+          {
+            printf '[Open the Tiny Tapeout 3D viewer](https://gds-viewer.tinytapeout.com/?pdk=%s&model=%s)\n\n' "$PDK" "$model"
+            printf '![Layout preview](%s/gds_render.png)\n' "$page_url"
+          } >> "$GITHUB_STEP_SUMMARY"
